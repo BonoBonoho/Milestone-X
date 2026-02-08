@@ -424,4 +424,29 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide flex items-center gap-1"><MessageSquareText size={10}/> 출처 회의록</span>
                                 <ArrowUpRight size={14} className="text-blue-400"/>
                              </div>
-                             <p className="text-sm font-bold text-gray-900 line-clamp-
+                             <p className="text-sm font-bold text-gray-900 line-clamp-2">
+                                {selectedEvent.meetingTitle}
+                             </p>
+                             <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                <Tag size={12} /> {selectedEvent.category}
+                             </div>
+                         </div>
+                         <div className="space-y-2">
+                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                <AlignLeft size={12}/> 메모
+                             </label>
+                             <textarea 
+                                value={selectedEvent.notes || ''}
+                                onChange={(e) => handleUpdate({ notes: e.target.value })}
+                                rows={4}
+                                placeholder="추가 메모를 입력하세요"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+                             />
+                         </div>
+                    </div>
+                </>
+            )}
+        </div>
+    </div>
+  );
+};
