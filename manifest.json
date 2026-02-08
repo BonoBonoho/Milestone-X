@@ -1,0 +1,18 @@
+
+{
+  "short_name": "Milestone X",
+  "name": "Milestone X Minutes AI",
+  "description": "AI 기반 스마트 회의록 어시스턴트",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5968/5968898.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb"
+}

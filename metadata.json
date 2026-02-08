@@ -1,0 +1,7 @@
+{
+  "name": "Milestone X Minutes",
+  "description": "An intelligent meeting assistant that records, transcribes with speaker diarization, and automatically generates summaries, agendas, and action items using Gemini AI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

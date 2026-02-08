@@ -1,0 +1,10 @@
+name = "milestone-queue-consumer"
+main = "queue-consumer.ts"
+compatibility_date = "2025-02-01"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "milestone-audio"
+
+[queues]
+consumers = [{ queue = "transcribe-queue" }]
