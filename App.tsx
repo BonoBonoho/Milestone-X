@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { Layout } from './components/Layout';
 import { MeetingList } from './components/MeetingList';
 import { Recorder } from './components/Recorder';
@@ -50,8 +52,14 @@ const App: React.FC = () => {
   const userEmailRef = useRef<string | null>(null);
   const meetingsRef = useRef<Meeting[]>([]);
   const notesRef = useRef<Note[]>([]);
+  const isPopStateRef = useRef(false);
+  const shouldTrapBackRef = useRef(false);
 
   const requestNotificationPermission = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try { await LocalNotifications.requestPermissions(); } catch {}
+      return;
+    }
     if (!('Notification' in window)) return;
     if (Notification.permission === 'default') {
       try { await Notification.requestPermission(); } catch {}
@@ -94,12 +102,24 @@ const App: React.FC = () => {
   };
 
   const notifyJobCompleted = (job: BackgroundJobStatus) => {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    if (!shouldNotifyForJob(job.jobId)) return;
     try {
       const title = '분석 완료';
       const body = job.title ? `${job.title} 회의록이 준비되었습니다.` : '회의록이 준비되었습니다.';
+      if (Capacitor.isNativePlatform()) {
+        if (!shouldNotifyForJob(job.jobId)) return;
+        LocalNotifications.schedule({
+          notifications: [{
+            id: Date.now() % 2147483647,
+            title,
+            body,
+            extra: { jobId: job.jobId },
+          }],
+        }).catch(() => {});
+        return;
+      }
+      if (!('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+      if (!shouldNotifyForJob(job.jobId)) return;
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistration().then((reg) => {
           if (!reg) throw new Error('no-sw');
@@ -244,6 +264,20 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let listener: any = null;
+    LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+      const jobId = event?.notification?.extra?.jobId;
+      if (jobId) openMeetingForJob(jobId);
+    }).then((handle) => {
+      listener = handle;
+    }).catch(() => {});
+    return () => {
+      try { listener?.remove?.(); } catch {}
+    };
+  }, []);
+
+  useEffect(() => {
     if (!userEmail || !isAuthenticated) return;
     const url = new URL(window.location.href);
     const jobId = url.searchParams.get('openJob');
@@ -256,6 +290,66 @@ const App: React.FC = () => {
   useEffect(() => {
     userEmailRef.current = userEmail;
   }, [userEmail]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    shouldTrapBackRef.current = Capacitor.isNativePlatform() || window.matchMedia('(max-width: 767px)').matches;
+    const baseState = { __app: true, view: 'dashboard', meetingId: null };
+    if (!window.history.state || !window.history.state.__app) {
+      window.history.replaceState(baseState, '');
+      if (shouldTrapBackRef.current) {
+        window.history.pushState(baseState, '');
+      }
+    }
+    const handlePop = (event: PopStateEvent) => {
+      const state = event.state;
+      isPopStateRef.current = true;
+      if (state?.__app && state.view) {
+        if (state.view === 'detail' && state.meetingId) {
+          const meeting = meetingsRef.current.find(m => m.id === state.meetingId);
+          if (meeting) {
+            setSelectedMeeting(meeting);
+            setView('detail');
+          } else {
+            setSelectedMeeting(null);
+            setView('dashboard');
+          }
+        } else {
+          setSelectedMeeting(null);
+          setView(state.view);
+        }
+        if (shouldTrapBackRef.current && state.view === 'dashboard') {
+          window.history.pushState(baseState, '');
+        }
+        return;
+      }
+      setSelectedMeeting(null);
+      setView('dashboard');
+      if (shouldTrapBackRef.current) {
+        window.history.pushState(baseState, '');
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      return;
+    }
+    const state = {
+      __app: true,
+      view,
+      meetingId: view === 'detail' ? selectedMeeting?.id ?? null : null,
+    };
+    const currentState = window.history.state;
+    if (currentState?.__app && currentState.view === state.view && currentState.meetingId === state.meetingId) {
+      return;
+    }
+    window.history.pushState(state, '');
+  }, [view, selectedMeeting?.id]);
 
   useEffect(() => {
     meetingsRef.current = meetings;
