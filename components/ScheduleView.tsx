@@ -11,6 +11,7 @@ interface ScheduleViewProps {
   meetings: Meeting[];
   categories: string[];
   onUpdateSchedule: (meetingId: string, scheduleId: string, type: 'todo' | 'schedule', updates: Partial<ScheduleItem | TodoItem>) => void;
+  onCreateSchedule?: (input: { event: string; date: string; endDate?: string; time?: string; notes?: string }) => string | void;
 }
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -19,6 +20,7 @@ interface EnrichedScheduleItem {
   id: string;
   event: string;
   date: string;
+  endDate?: string;
   time?: string;
   confirmed?: boolean;
   deactivated?: boolean;
@@ -31,7 +33,7 @@ interface EnrichedScheduleItem {
   completed?: boolean;
 }
 
-export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories, onUpdateSchedule }) => {
+export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories, onUpdateSchedule, onCreateSchedule }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -39,6 +41,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showPending, setShowPending] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -164,6 +168,40 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     return clean.match(/^\d{4}-\d{2}-\d{2}$/) ? clean : '';
   };
 
+  const isDateInRange = (target: string, start?: string, end?: string) => {
+    const startKey = normalizeDate(start);
+    const endKey = normalizeDate(end);
+    if (!startKey) return false;
+    if (!endKey || startKey === endKey) return target === startKey;
+    return target >= startKey && target <= endKey;
+  };
+
+  const openAddModal = (presetDate?: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    setDraft({
+      event: '',
+      date: presetDate || today,
+      endDate: '',
+      time: '',
+      notes: ''
+    });
+    setShowAddModal(true);
+  };
+
+  const handleCreate = () => {
+    if (!draft.event.trim() || !draft.date) return;
+    const payload = {
+      event: draft.event.trim(),
+      date: draft.date,
+      endDate: draft.endDate || undefined,
+      time: draft.time || undefined,
+      notes: draft.notes || undefined,
+    };
+    const createdId = onCreateSchedule?.(payload);
+    setShowAddModal(false);
+    if (createdId) setSelectedEventId(createdId);
+  };
+
   const renderMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -188,24 +226,38 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             if (!day) return <div key={`blank-${idx}`} className="bg-gray-50/20 border-b border-r border-gray-50 min-h-[90px] sm:min-h-[120px]" />;
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const isToday = dateStr === todayStr;
-            const dayEvents = filteredEvents.filter(e => normalizeDate(e.date).includes(dateStr));
+            const dayEvents = filteredEvents.filter(e => isDateInRange(dateStr, e.date, e.endDate));
             const limit = isMobile ? 2 : 4;
             const visibleEvents = dayEvents.slice(0, limit);
             const remaining = dayEvents.length - visibleEvents.length;
             return (
               <div key={day} className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[90px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''}`}>
                 <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                  <span className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setCurrentDate(new Date(year, month, day)); setViewMode('day'); }}
+                    className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-colors ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}
+                    title="일간 보기로 열기"
+                  >
                     {day}
-                  </span>
+                  </button>
                   {dayEvents.length > 0 && <span className="text-[9px] sm:text-[10px] font-bold text-gray-400">{dayEvents.length}개</span>}
                 </div>
                 <div className="space-y-1">
-                  {visibleEvents.map((event) => (
+                  {visibleEvents.map((event) => {
+                    const startKey = normalizeDate(event.date);
+                    const endKey = normalizeDate(event.endDate);
+                    const isRange = !!endKey && endKey !== startKey;
+                    const isStart = isRange && dateStr === startKey;
+                    const isEnd = isRange && dateStr === endKey;
+                    const label = isRange && !isStart ? '…' : event.event;
+                    const rangeClass = isRange
+                      ? `${isStart ? 'rounded-l-md sm:rounded-l-lg' : 'rounded-l-none'} ${isEnd ? 'rounded-r-md sm:rounded-r-lg' : 'rounded-r-none'}`
+                      : 'rounded-md sm:rounded-lg';
+                    return (
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
-                      className={`px-2 py-1 rounded-md sm:rounded-lg border text-[9px] sm:text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1 ${
+                      className={`px-2 py-1 border text-[9px] sm:text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1 ${rangeClass} ${
                         event.sourceType === 'todo'
                           ? event.completed ? 'bg-emerald-50 text-emerald-600 border-emerald-100 line-through' : 'bg-orange-50 text-orange-700 border-orange-100'
                           : event.meetingType === 'meeting' 
@@ -214,9 +266,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       } ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
                     >
                       {event.sourceType === 'todo' ? <CheckSquare size={10} className="flex-shrink-0" /> : <div className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />}
-                      <span className="truncate">{event.event}</span>
+                      <span className="truncate">{label}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                   {remaining > 0 && (
                     <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 px-2">+{remaining}개 더보기</div>
                   )}
@@ -239,7 +292,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
         <div className="space-y-3">
           {days.map((day) => {
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-            const dayEvents = filteredEvents.filter(e => normalizeDate(e.date).includes(dateStr));
+            const dayEvents = filteredEvents.filter(e => isDateInRange(dateStr, e.date, e.endDate));
             return (
               <div key={dateStr} className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${showPending ? 'border-orange-200' : 'border-gray-100'}`}>
                 <div className={`px-3 py-2 flex items-center justify-between text-xs font-bold ${dateStr === todayStr ? 'text-blue-700 bg-blue-50/70' : 'text-gray-600 bg-gray-50/60'}`}>
@@ -295,7 +348,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
         <div className="grid grid-cols-7 auto-rows-[minmax(140px,auto)]">
           {days.map((day) => {
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-            const dayEvents = filteredEvents.filter(e => normalizeDate(e.date).includes(dateStr));
+            const dayEvents = filteredEvents.filter(e => isDateInRange(dateStr, e.date, e.endDate));
             return (
               <div key={dateStr} className="p-2 border-b border-r border-gray-100 space-y-1.5">
                 {dayEvents.length === 0 ? (
@@ -328,7 +381,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
 
   const renderDay = () => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-    const dayEvents = filteredEvents.filter(e => normalizeDate(e.date).includes(dateStr));
+    const dayEvents = filteredEvents.filter(e => isDateInRange(dateStr, e.date, e.endDate));
     const dayLabel = `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월 ${currentDate.getDate()}일(${weekDayLabels[currentDate.getDay()]})`;
 
     return (
@@ -402,6 +455,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                         className="w-full md:w-64 pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-2xl text-[13px] sm:text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all shadow-sm"
                         />
                     </div>
+                    <button
+                      onClick={() => openAddModal()}
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white text-[11px] sm:text-sm font-bold rounded-2xl shadow-md hover:bg-blue-700 transition-all whitespace-nowrap"
+                    >
+                      <Plus size={14} /> <span className="hidden sm:inline">일정 추가</span>
+                      <span className="sm:hidden">추가</span>
+                    </button>
                 </div>
                 </div>
                 <div className="flex flex-col xl:flex-row items-center justify-between gap-3 sm:gap-4 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
@@ -525,9 +585,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                 </button>
                              </div>
                          )}
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${selectedEvent.sourceType === 'schedule' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                              <div className="space-y-2">
-                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><CalendarIcon size={12}/> 날짜</label>
+                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><CalendarIcon size={12}/> 시작 날짜</label>
                                  <input 
                                     type="date"
                                     value={normalizeDate(selectedEvent.date)}
@@ -535,6 +595,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
                                  />
                              </div>
+                             {selectedEvent.sourceType === 'schedule' && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><CalendarIcon size={12}/> 종료 날짜</label>
+                                    <input 
+                                        type="date"
+                                        value={normalizeDate(selectedEvent.endDate)}
+                                        onChange={(e) => handleUpdate({ endDate: e.target.value || undefined })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+                                    />
+                                </div>
+                             )}
                              {selectedEvent.sourceType === 'schedule' && (
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><Clock size={12}/> 시간</label>
@@ -589,6 +660,80 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                 </>
             )}
         </div>
+        {showAddModal && (
+          <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-gray-900">일정 추가</h3>
+                <button onClick={() => setShowAddModal(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">제목</label>
+                <input
+                  value={draft.event}
+                  onChange={(e) => setDraft(prev => ({ ...prev, event: e.target.value }))}
+                  placeholder="예: 디자인 컨셉 회의"
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">시작 날짜</label>
+                  <input
+                    type="date"
+                    value={draft.date}
+                    onChange={(e) => setDraft(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">종료 날짜 (선택)</label>
+                  <input
+                    type="date"
+                    value={draft.endDate}
+                    onChange={(e) => setDraft(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">시간 (선택)</label>
+                <input
+                  type="time"
+                  value={draft.time}
+                  onChange={(e) => setDraft(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">메모 (선택)</label>
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => setDraft(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="추가 메모를 입력하세요"
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2.5 rounded-2xl border border-gray-200 text-gray-500 font-bold hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="flex-1 py-2.5 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700"
+                >
+                  추가
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

@@ -15,7 +15,7 @@ import { MeetingListView } from './components/MeetingListView';
 import { ScheduleView } from './components/ScheduleView';
 import { AdminView } from './components/AdminView';
 import { Login } from './components/Login';
-import { Meeting, Note, StickyNote, View, MeetingType, KeywordCorrection, BackgroundJobStatus } from './types';
+import { Meeting, Note, StickyNote, View, MeetingType, KeywordCorrection, BackgroundJobStatus, ScheduleItem } from './types';
 import { enqueueAudioMeeting, fetchJobStatus, retryJob } from './services/geminiService';
 import { cloudData, cloudAuth } from './services/cloudService';
 import { Sparkles, BrainCircuit, MessageSquareText } from 'lucide-react';
@@ -26,6 +26,9 @@ const PENDING_JOBS_KEY = 'bmove_pending_jobs';
 const JOB_APPLIED_KEY = 'bmove_job_applied';
 const JOB_NOTIFIED_KEY = 'bmove_job_notified';
 const DEFAULT_CATEGORIES = ['프로젝트 회의', '데일리 스크럼', '아이디어 브레인스토밍', '개인 회고', '파일 업로드', '기타'];
+const PERSONAL_SCHEDULE_TITLE = '내 일정';
+const PERSONAL_SCHEDULE_CATEGORY = '내 일정';
+const PERSONAL_SCHEDULE_GROUP = '개인';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -621,6 +624,52 @@ const App: React.FC = () => {
     setMeetings(prev => [newList, ...prev]);
   };
 
+  const handleCreateSchedule = (input: { event: string; date: string; endDate?: string; time?: string; notes?: string }) => {
+    if (!userEmail) return;
+    const scheduleId = generateUUID();
+    const newSchedule: ScheduleItem = {
+      id: scheduleId,
+      event: input.event,
+      date: input.date,
+      endDate: input.endDate,
+      time: input.time,
+      notes: input.notes,
+      confirmed: true,
+      deactivated: false
+    };
+
+    let target = meetings.find(m => m.title === PERSONAL_SCHEDULE_TITLE && m.category === PERSONAL_SCHEDULE_CATEGORY);
+    if (!target) {
+      const newMeeting: Meeting = {
+        id: generateUUID(),
+        title: PERSONAL_SCHEDULE_TITLE,
+        author: userEmail,
+        category: PERSONAL_SCHEDULE_CATEGORY,
+        group: PERSONAL_SCHEDULE_GROUP,
+        speakers: [],
+        date: input.date,
+        duration: '00:00',
+        type: 'list',
+        transcript: [],
+        minutes: { agenda: [], summary: '', todos: [], schedules: [newSchedule] },
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      cloudData.saveMeeting(userEmail, newMeeting);
+      setMeetings(prev => [newMeeting, ...prev]);
+      return scheduleId;
+    }
+
+    const updated = {
+      ...target,
+      minutes: { ...target.minutes, schedules: [newSchedule, ...(target.minutes?.schedules || [])] },
+      updatedAt: Date.now()
+    };
+    setMeetings(prev => prev.map(m => m.id === updated.id ? updated : m));
+    cloudData.saveMeeting(userEmail, updated);
+    return scheduleId;
+  };
+
   const handleUpdateMeeting = async (updated: Meeting) => {
     if (!userEmail) return;
     const finalUpdate = { ...updated, updatedAt: Date.now() };
@@ -798,6 +847,7 @@ const App: React.FC = () => {
               meetings={meetings}
               categories={allCategories}
               onUpdateSchedule={(mId, sId, type, updates) => handleUpdateTaskItem(mId, sId, type, updates)}
+              onCreateSchedule={handleCreateSchedule}
             />
           )}
           {view === 'settings' && <Settings userEmail={userEmail || 'Guest'} onLogout={handleLogout} />}

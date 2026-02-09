@@ -29,6 +29,7 @@ export interface ScheduleItem {
   id: string;
   event: string;
   date: string;
+  endDate?: string;
   time?: string;
   confirmed?: boolean;
   deactivated?: boolean; // [New] 비활성화 상태 추가
