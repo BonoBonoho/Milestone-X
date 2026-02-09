@@ -11,10 +11,14 @@
     "worker:deploy": "npx wrangler deploy -c workers/wrangler.toml"
   },
   "dependencies": {
-    "react-dom": "^19.2.4",
-    "react": "^19.2.4",
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@supabase/supabase-js": "2.39.7",
     "lucide-react": "^0.563.0",
-    "@supabase/supabase-js": "2.39.7"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
