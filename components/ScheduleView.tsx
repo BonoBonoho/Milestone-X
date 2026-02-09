@@ -47,6 +47,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [showAddModal, setShowAddModal] = useState(false);
   const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
   const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -287,12 +288,21 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             const visibleEvents = dayEvents.slice(0, limit);
             const remaining = dayEvents.length - visibleEvents.length;
             return (
-              <div key={day} className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[90px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''}`}>
+              <div key={day} className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[110px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''}`}>
                 <div className="flex justify-between items-start mb-1.5 sm:mb-2">
                   <button
-                    onClick={(e) => { e.stopPropagation(); setCurrentDate(new Date(year, month, day)); setViewMode('day'); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      if (isMobile) {
+                        setSelectedDay(next);
+                      } else {
+                        setCurrentDate(new Date(year, month, day));
+                        setViewMode('day');
+                      }
+                    }}
                     className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-colors ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}
-                    title="일간 보기로 열기"
+                    title={isMobile ? '선택 날짜 보기' : '일간 보기로 열기'}
                   >
                     {day}
                   </button>
@@ -305,7 +315,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     const isRange = !!endKey && endKey !== startKey;
                     const isStart = isRange && dateStr === startKey;
                     const isEnd = isRange && dateStr === endKey;
-                    const label = isRange && !isStart ? '…' : event.event;
+                    const label = event.event;
                     const rangeClass = isRange
                       ? `${isStart ? 'rounded-l-md sm:rounded-l-lg' : 'rounded-l-none'} ${isEnd ? 'rounded-r-md sm:rounded-r-lg' : 'rounded-r-none'}`
                       : 'rounded-md sm:rounded-lg';
@@ -314,10 +324,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
-                      className={`px-2 py-1.5 border text-[10px] sm:text-[11px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-start gap-2 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
-                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.14) }}
+                      className={`px-2 py-1.5 border-l-4 text-[11px] sm:text-[11px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.18), borderLeftColor: color }}
                     >
-                      <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ backgroundColor: color }} />
                       <span className="line-clamp-2 leading-tight">{label}</span>
                     </div>
                     );
@@ -419,10 +428,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className={`px-2 py-1.5 rounded-md border text-[10px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-start gap-2 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
-                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
+                      className={`px-2 py-1.5 rounded-md border-l-4 text-[10px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, borderLeftColor: color, backgroundColor: hexToRgba(color, 0.14) }}
                     >
-                      <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ backgroundColor: color }} />
                       <span className="line-clamp-2 leading-tight">{event.event}</span>
                     </div>
                     );
@@ -616,6 +624,55 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     </div>
                 )}
                 {viewMode === 'month' && renderMonth()}
+                {viewMode === 'month' && isMobile && (
+                  <div className="mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between text-xs font-bold text-gray-600">
+                      <span>
+                        선택 날짜: {selectedDay}
+                      </span>
+                      <button
+                        className="text-blue-600 font-black"
+                        onClick={() => {
+                          const [y, m, d] = selectedDay.split('-').map(Number);
+                          if (y && m && d) {
+                            setCurrentDate(new Date(y, m - 1, d));
+                            setViewMode('day');
+                          }
+                        }}
+                      >
+                        일간 보기
+                      </button>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {filteredEvents.filter(e => isDateInRange(selectedDay, e.date, e.endDate)).length === 0 ? (
+                        <div className="px-4 py-4 text-[11px] text-gray-400">선택한 날짜에 일정이 없습니다.</div>
+                      ) : (
+                        filteredEvents
+                          .filter(e => isDateInRange(selectedDay, e.date, e.endDate))
+                          .map(event => {
+                            const color = getCategoryColor(event.category);
+                            return (
+                              <div
+                                key={`${selectedDay}-${event.id}`}
+                                onClick={() => setSelectedEventId(event.id)}
+                                className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-blue-50/40"
+                              >
+                                <div className="w-1.5 h-10 rounded-full mt-1" style={{ backgroundColor: color }} />
+                                <div className="min-w-0 flex-1">
+                                  <div className={`text-sm font-semibold ${event.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                    {event.event}
+                                  </div>
+                                  <div className="text-[11px] text-gray-500 mt-1">
+                                    {event.category} · {event.meetingTitle}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                )}
                 {viewMode === 'week' && renderWeek()}
                 {viewMode === 'day' && renderDay()}
             </div>
