@@ -41,12 +41,12 @@ export const MeetingListView: React.FC<MeetingListViewProps> = ({
   }, [meetings, searchTerm, selectedCategory]);
 
   const renderCardView = () => (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 gap-3 sm:gap-4">
       {filteredMeetings.map((meeting) => (
         <div 
           key={meeting.id}
           onClick={() => onSelectMeeting(meeting)}
-          className="group bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer flex flex-col md:flex-row gap-6 relative overflow-hidden active:scale-[0.99]"
+          className="group bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer flex flex-col md:flex-row gap-4 sm:gap-6 relative overflow-hidden active:scale-[0.99]"
         >
           <div className={`absolute top-0 left-0 bottom-0 w-1.5 transition-colors ${meeting.type === 'meeting' ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
           
@@ -76,7 +76,7 @@ export const MeetingListView: React.FC<MeetingListViewProps> = ({
              </div>
           </div>
 
-          <div className="flex md:flex-col items-center justify-between border-t md:border-t-0 md:border-l border-gray-50 pt-4 md:pt-0 md:pl-6 min-w-[140px]">
+          <div className="flex md:flex-col items-center justify-between border-t md:border-t-0 md:border-l border-gray-50 pt-4 md:pt-0 md:pl-6 min-w-[120px] sm:min-w-[140px]">
              <div className="hidden md:flex flex-col items-center gap-1 text-center">
                 <span className="text-3xl font-black text-gray-200 group-hover:text-blue-100 transition-colors">
                     {new Date(meeting.createdAt).getDate()}
@@ -96,13 +96,13 @@ export const MeetingListView: React.FC<MeetingListViewProps> = ({
   );
 
   const renderBoardView = () => (
-    <div className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] items-start">
+    <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-6 min-h-[520px] sm:min-h-[600px] items-start">
       {categories.map(cat => {
         const items = filteredMeetings.filter(m => m.category === cat);
         if (selectedCategory !== 'All' && selectedCategory !== cat) return null;
 
         return (
-          <div key={cat} className="min-w-[320px] max-w-[320px] flex-shrink-0 bg-gray-50/50 rounded-3xl p-4 border border-gray-100 flex flex-col h-full">
+          <div key={cat} className="min-w-[260px] max-w-[260px] sm:min-w-[320px] sm:max-w-[320px] flex-shrink-0 bg-gray-50/50 rounded-3xl p-4 border border-gray-100 flex flex-col h-full">
             <div className="flex items-center justify-between mb-4 px-2">
               <h3 className="font-bold text-gray-700 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -206,13 +206,13 @@ export const MeetingListView: React.FC<MeetingListViewProps> = ({
   );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 space-y-8 animate-in fade-in duration-500 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 animate-in fade-in duration-500 min-h-screen">
       <div className="flex flex-col gap-6">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-              <Library className="text-blue-600" size={32} /> 회의록 보관함
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+              <Library className="text-blue-600" size={28} /> 회의록 보관함
             </h2>
             <p className="text-gray-500 font-medium text-sm">
               총 <span className="text-blue-600 font-bold">{meetings.length}</span>개의 분석된 회의 기록이 있습니다.
@@ -229,7 +229,7 @@ export const MeetingListView: React.FC<MeetingListViewProps> = ({
                   className="w-full md:w-64 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all shadow-sm"
                 />
              </div>
-             <button onClick={onStartNew} className="px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 whitespace-nowrap">
+             <button onClick={onStartNew} className="px-3 py-2 sm:px-4 sm:py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 whitespace-nowrap">
                 + 새 회의
              </button>
           </div>

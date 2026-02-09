@@ -14,6 +14,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, onLogout, isAdmin }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // 메인 사이드바 상태
 
   useEffect(() => {
@@ -24,20 +25,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate
     };
     window.addEventListener('beforeinstallprompt', handler);
     
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setShowInstallBtn(false);
-    }
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+    setIsStandalone(standalone);
+    if (standalone) setShowInstallBtn(false);
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert('크롬 메뉴(⋮)에서 “홈 화면에 추가”를 선택하면 설치할 수 있습니다.');
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setShowInstallBtn(false);
-    }
+    if (outcome === 'accepted') setShowInstallBtn(false);
     setDeferredPrompt(null);
   };
 
@@ -50,12 +52,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate
           Milestone X
         </h1>
         <div className="flex items-center gap-2">
-          {showInstallBtn && (
+          {!isStandalone && (
             <button 
               onClick={handleInstallClick}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full shadow-lg animate-bounce"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold rounded-full shadow-lg ${showInstallBtn ? 'bg-blue-600 text-white animate-bounce' : 'bg-white text-blue-600 border border-blue-100'}`}
             >
-              <Download size={12} /> 앱 설치
+              <Download size={12} /> {showInstallBtn ? '앱 설치' : '설치 방법'}
             </button>
           )}
           <button onClick={onLogout} className="text-gray-400 p-2 active:bg-gray-100 rounded-full transition-colors">
