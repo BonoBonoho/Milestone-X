@@ -46,6 +46,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [isMobile, setIsMobile] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
+  const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -237,13 +238,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     return COLOR_PALETTE[idx];
   };
 
-  const setNextCategoryColor = (category: string) => {
-    const current = getCategoryColor(category);
-    const idx = COLOR_PALETTE.indexOf(current);
-    const next = COLOR_PALETTE[(idx + 1) % COLOR_PALETTE.length] || COLOR_PALETTE[0];
-    setCategoryColors(prev => ({ ...prev, [category]: next }));
-  };
-
   const hexToRgba = (hex: string, alpha: number) => {
     const clean = hex.replace('#', '');
     const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
@@ -252,6 +246,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     const g = (num >> 8) & 255;
     const b = num & 255;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const openColorPicker = (category: string) => {
+    if (category === 'All') return;
+    setColorPickerCategory(category);
+  };
+
+  const applyCategoryColor = (category: string, color: string) => {
+    setCategoryColors(prev => ({ ...prev, [category]: color }));
+    setColorPickerCategory(null);
   };
 
   const renderMonth = () => {
@@ -310,11 +314,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
-                      className={`px-2 py-1 border text-[9px] sm:text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      className={`px-2 py-1.5 border text-[10px] sm:text-[11px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-start gap-2 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.14) }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="truncate">{label}</span>
+                      <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ backgroundColor: color }} />
+                      <span className="line-clamp-2 leading-tight">{label}</span>
                     </div>
                     );
                   })}
@@ -359,10 +363,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                         onClick={() => setSelectedEventId(event.id)}
                         className={`px-3 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${selectedEventId === event.id ? 'bg-blue-50/60' : 'hover:bg-blue-50/40'}`}
                       >
-                        <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: color }}></div>
+                        <div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: color }}></div>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-xs font-bold truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                          <div className={`text-sm font-semibold leading-tight line-clamp-2 ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                             {event.event}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                              {event.category}
+                            </span>
+                            {event.time && <span className="flex items-center gap-1"><Clock size={10} /> {event.time}</span>}
                           </div>
                           <div className="text-[10px] text-gray-400 truncate">From: {event.meetingTitle}</div>
                         </div>
@@ -408,11 +419,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className={`px-2 py-1 rounded-md border text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      className={`px-2 py-1.5 rounded-md border text-[10px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-start gap-2 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="truncate">{event.event}</span>
+                      <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ backgroundColor: color }} />
+                      <span className="line-clamp-2 leading-tight">{event.event}</span>
                     </div>
                     );
                   })
@@ -450,10 +461,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
               >
                 <div className="w-1.5 h-12 rounded-full" style={{ backgroundColor: color }}></div>
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                  <h4 className={`text-base sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
                     {event.event}
                   </h4>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 mt-1">
                     <span className={`px-2 py-0.5 rounded font-bold ${event.sourceType === 'todo' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                       {event.sourceType === 'todo' ? '할 일 마감' : '일정'}
                     </span>
@@ -572,14 +583,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                     : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                                 }`}
                             >
-                                <span
+                                <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!isAll) setNextCategoryColor(cat);
+                                    openColorPicker(cat);
                                   }}
-                                  className={`w-2.5 h-2.5 rounded-full border ${isAll ? 'bg-gray-300 border-gray-300' : ''}`}
+                                  className={`w-3 h-3 rounded-full border ${isAll ? 'bg-gray-300 border-gray-300 cursor-default' : 'hover:scale-110 transition-transform'}`}
                                   style={!isAll ? { backgroundColor: color, borderColor: color } : {}}
-                                  title={isAll ? '전체' : '색상 변경'}
+                                  title={isAll ? '전체' : '색상 선택'}
+                                  aria-label={`${cat} 색상 선택`}
                                 />
                                 {cat}
                             </button>
@@ -790,6 +803,40 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                   className="flex-1 py-2.5 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700"
                 >
                   추가
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {colorPickerCategory && (
+          <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-gray-900">색상 선택</h3>
+                <button onClick={() => setColorPickerCategory(null)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="text-sm font-bold text-gray-500">
+                {colorPickerCategory} 색상
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => applyCategoryColor(colorPickerCategory, color)}
+                    className="w-12 h-12 rounded-2xl border-2 border-white shadow-md hover:scale-105 transition-transform"
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setColorPickerCategory(null)}
+                  className="flex-1 py-2.5 rounded-2xl border border-gray-200 text-gray-500 font-bold hover:bg-gray-50"
+                >
+                  닫기
                 </button>
               </div>
             </div>
