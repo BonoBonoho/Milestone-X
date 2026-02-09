@@ -34,7 +34,10 @@ interface EnrichedScheduleItem {
 }
 
 export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories, onUpdateSchedule, onCreateSchedule }) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return 'week';
+    return 'month';
+  });
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
@@ -202,6 +205,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     if (createdId) setSelectedEventId(createdId);
   };
 
+  const getCategoryLabel = (category: string) => {
+    if (!category) return '기타';
+    return isMobile ? category.slice(0, 4) : category;
+  };
+
   const renderMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -253,6 +261,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     const rangeClass = isRange
                       ? `${isStart ? 'rounded-l-md sm:rounded-l-lg' : 'rounded-l-none'} ${isEnd ? 'rounded-r-md sm:rounded-r-lg' : 'rounded-r-none'}`
                       : 'rounded-md sm:rounded-lg';
+                    const categoryLabel = getCategoryLabel(event.category);
                     return (
                     <div 
                       key={event.id} 
@@ -265,7 +274,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                              : 'bg-purple-50 text-purple-700 border-purple-100'
                       } ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
                     >
-                      {event.sourceType === 'todo' ? <CheckSquare size={10} className="flex-shrink-0" /> : <div className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />}
+                      <span className="px-1.5 py-0.5 rounded bg-white/70 border border-white/60 text-[8px] font-black text-gray-600 shrink-0">{categoryLabel}</span>
                       <span className="truncate">{label}</span>
                     </div>
                     );
@@ -314,8 +323,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                           event.meetingType === 'meeting' ? 'bg-blue-500' : 'bg-purple-500'
                         }`}></div>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-xs font-bold ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                            {event.event}
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-black text-gray-600">
+                              {getCategoryLabel(event.category)}
+                            </span>
+                            <div className={`text-xs font-bold truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                              {event.event}
+                            </div>
                           </div>
                           <div className="text-[10px] text-gray-400 truncate">From: {event.meetingTitle}</div>
                         </div>
@@ -366,7 +380,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                              : 'bg-purple-50 text-purple-700 border-purple-100'
                       } ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
                     >
-                      {event.sourceType === 'todo' ? <CheckSquare size={10} className="flex-shrink-0" /> : <div className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />}
+                      <span className="px-1.5 py-0.5 rounded bg-white/70 border border-white/60 text-[8px] font-black text-gray-600 shrink-0">
+                        {getCategoryLabel(event.category)}
+                      </span>
                       <span className="truncate">{event.event}</span>
                     </div>
                   ))
@@ -405,10 +421,14 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     event.meetingType === 'meeting' ? 'bg-blue-500' : 'bg-purple-500'
                 }`}></div>
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-sm font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors flex items-center gap-2 ${event.completed ? 'line-through text-gray-400' : ''}`}>
-                    {event.sourceType === 'todo' && <CheckSquare size={14} className="text-orange-500" />}
-                    {event.event}
-                  </h4>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-black text-gray-600">
+                      {getCategoryLabel(event.category)}
+                    </span>
+                    <h4 className={`text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                      {event.event}
+                    </h4>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                     <span className={`px-2 py-0.5 rounded font-bold ${event.sourceType === 'todo' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                       {event.sourceType === 'todo' ? '할 일 마감' : '일정'}
@@ -553,10 +573,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             {selectedEvent && (
                 <>
                     <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                        <div className="flex items-center gap-2 text-gray-500">
-                             {selectedEvent.sourceType === 'todo' ? <CheckSquare size={18} className="text-orange-500"/> : <CalendarDays size={18} className="text-blue-600"/>}
-                             <span className="text-xs font-black uppercase tracking-widest">{selectedEvent.sourceType === 'todo' ? '할 일 마감 상세' : '일정 상세'}</span>
-                        </div>
+                <div className="flex items-center gap-2 text-gray-500">
+                     {selectedEvent.sourceType === 'todo' ? <CheckSquare size={18} className="text-orange-500"/> : <CalendarDays size={18} className="text-blue-600"/>}
+                     <span className="text-xs font-black uppercase tracking-widest">{selectedEvent.sourceType === 'todo' ? '할 일 마감 상세' : '일정 상세'}</span>
+                </div>
                         <div className="flex items-center gap-1">
                             <button onClick={() => setSelectedEventId(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
                                 <X size={20}/>
@@ -571,6 +591,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                 onChange={(e) => handleUpdate({ [selectedEvent.sourceType === 'todo' ? 'task' : 'event']: e.target.value })}
                                 className="w-full text-xl font-bold text-gray-900 border-none outline-none bg-transparent placeholder:text-gray-300 border-b border-gray-200 focus:border-blue-500 transition-colors pb-2"
                              />
+                             <div className="text-[11px] text-gray-500 font-bold mt-1">
+                               목록: {selectedEvent.category} · From: {selectedEvent.meetingTitle}
+                             </div>
                          </div>
                          {selectedEvent.confirmed === false && (
                              <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex flex-col gap-3">
