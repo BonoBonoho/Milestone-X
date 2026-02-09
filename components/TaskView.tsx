@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, Check, Trash2, X, Star, Sun, User, 
   ChevronRight, ChevronLeft, ChevronDown, Inbox, Folder, 
@@ -58,6 +58,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [searchQuery, setSearchTerm] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [mainInput, setMainInput] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
   
@@ -69,6 +70,19 @@ export const TaskView: React.FC<TaskViewProps> = ({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   
   const sidebarDateRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) setIsSidebarOpen(false);
+  }, [isMobile]);
 
   const { groups, categoryDataByGroup } = useMemo(() => {
     const groupMap: { [key: string]: Set<string> } = {};
@@ -314,9 +328,9 @@ export const TaskView: React.FC<TaskViewProps> = ({
           draggable={!isDeactivated}
           onDragStart={(e) => handleDragStart(e, item.uid)}
           onClick={() => setSelectedItemUid(item.uid)}
-          className={`group flex items-start gap-4 p-4 rounded-[20px] border-2 transition-all cursor-pointer ${selectedItemUid === item.uid ? 'bg-slate-50 border-slate-200' : 'bg-white border-transparent hover:bg-gray-50'} ${item.completed ? 'opacity-50' : ''} ${isDeactivated ? 'opacity-40 grayscale' : ''}`}
+          className={`group flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-[16px] sm:rounded-[20px] border-2 transition-all cursor-pointer ${selectedItemUid === item.uid ? 'bg-slate-50 border-slate-200' : 'bg-white border-transparent hover:bg-gray-50'} ${item.completed ? 'opacity-50' : ''} ${isDeactivated ? 'opacity-40 grayscale' : ''}`}
         >
-          {!isDeactivated && <div className="mt-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"><GripVertical size={16}/></div>}
+          {!isDeactivated && <div className="mt-1 text-gray-300 opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0"><GripVertical size={16}/></div>}
           {isDeactivated ? (
              <button 
                 onClick={(e) => { e.stopPropagation(); onUpdateItem(item.meetingId, item.id, 'todo', { deactivated: false }); }}
@@ -342,8 +356,8 @@ export const TaskView: React.FC<TaskViewProps> = ({
             </button>
           )}
           <div className="flex-1 min-w-0">
-            <p className={`text-[15px] font-bold ${item.completed ? 'text-gray-400 line-through' : 'text-slate-900'}`}>{item.title}</p>
-            <div className="flex items-center gap-2 mt-1.5 text-[11px] font-bold text-gray-400">
+            <p className={`text-[13px] sm:text-[15px] font-bold ${item.completed ? 'text-gray-400 line-through' : 'text-slate-900'}`}>{item.title}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[9px] sm:text-[11px] font-bold text-gray-400">
                {isDeactivated && <span className="text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">비활성화됨</span>}
                {isInboxItem && <span className="text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">검토 필요</span>}
                <span className="flex items-center gap-1"><Inbox size={11}/> {item.category}</span>
@@ -354,7 +368,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
               {!isDeactivated && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); onUpdateItem(item.meetingId, item.id, 'todo', { deactivated: true }); }}
-                    className="mt-1 p-2 text-gray-300 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                    className="mt-1 p-2 text-gray-300 hover:text-red-400 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                     title="비활성화 (목록에서 숨기기)"
                   >
                     <EyeOff size={18} />
@@ -377,31 +391,38 @@ export const TaskView: React.FC<TaskViewProps> = ({
   const deactivatedCount = useMemo(() => allItems.filter(t => t.deactivated === true).length, [allItems]);
 
   return (
-    <div className="flex h-[calc(100vh-64px)] md:h-screen bg-white overflow-hidden text-sm">
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-0'} bg-gray-50 flex flex-col transition-all duration-300 border-r overflow-hidden flex-shrink-0 z-20`}>
-        <div className="p-4 space-y-4">
+    <div className="flex min-h-[calc(100vh-64px)] md:min-h-screen bg-white overflow-hidden text-sm relative">
+      {isMobile && isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/30 z-10"
+          aria-label="사이드바 닫기"
+        />
+      )}
+      <aside className={`${isSidebarOpen || !isMobile ? 'translate-x-0' : '-translate-x-full'} fixed md:static inset-y-0 left-0 w-64 sm:w-72 bg-gray-50 flex flex-col transition-transform duration-300 border-r overflow-hidden flex-shrink-0 z-20 shadow-2xl md:shadow-none`}>
+        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
               <input value={searchQuery} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-100" placeholder="검색" />
            </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-20 custom-scrollbar">
-          <button onClick={() => setViewState({ type: 'filter', id: 'inbox' })} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${currentFilterId === 'inbox' ? 'bg-white shadow-sm font-bold text-blue-600' : 'text-gray-600 hover:bg-white/50'}`}>
-             <div className="flex items-center gap-4"><Inbox size={20} className={currentFilterId === 'inbox' ? "text-blue-500" : "text-gray-400"}/> 수신함 (미배정)</div>
+          <button onClick={() => setViewState({ type: 'filter', id: 'inbox' })} className={`w-full flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'inbox' ? 'bg-white shadow-sm font-bold text-blue-600' : 'text-gray-600 hover:bg-white/50'}`}>
+             <div className="flex items-center gap-3 sm:gap-4"><Inbox size={20} className={currentFilterId === 'inbox' ? "text-blue-500" : "text-gray-400"}/> 수신함 (미배정)</div>
              {inboxCount > 0 && <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{inboxCount}</span>}
           </button>
           <div className="h-px bg-gray-200 my-2 mx-2"></div>
-          <button onClick={() => setViewState({ type: 'filter', id: 'myday' })} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${currentFilterId === 'myday' ? 'bg-white shadow-sm font-bold text-orange-600' : 'text-gray-600 hover:bg-white/50'}`}><Sun size={20} className="text-orange-500"/> 오늘 작업</button>
-          <button onClick={() => setViewState({ type: 'filter', id: 'important' })} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${currentFilterId === 'important' ? 'bg-white shadow-sm font-bold text-pink-500' : 'text-gray-600 hover:bg-white/50'}`}><Star size={20} className="text-pink-500"/> 중요</button>
-          <button onClick={() => setViewState({ type: 'filter', id: 'planned' })} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${currentFilterId === 'planned' ? 'bg-white shadow-sm font-bold text-teal-600' : 'text-gray-600 hover:bg-white/50'}`}><CalendarDays size={20} className="text-teal-500"/> 계획된 일정</button>
-          <button onClick={() => setViewState({ type: 'filter', id: 'tasks' })} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${currentFilterId === 'tasks' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-gray-600 hover:bg-white/50'}`}><CheckSquare size={20} className="text-indigo-500"/> 작업</button>
-          <button onClick={() => setViewState({ type: 'filter', id: 'all' })} className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${currentFilterId === 'all' ? 'bg-white shadow-sm font-bold text-gray-900' : 'text-gray-600 hover:bg-white/50'}`}><Layout size={20} className="text-gray-400"/> 모든 작업</button>
-          <button onClick={() => setViewState({ type: 'filter', id: 'deactivated' })} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${currentFilterId === 'deactivated' ? 'bg-white shadow-sm font-bold text-gray-500' : 'text-gray-500 hover:bg-white/50'}`}>
-             <div className="flex items-center gap-4"><Archive size={20} className={currentFilterId === 'deactivated' ? "text-gray-600" : "text-gray-400"}/> 비활성화된 항목</div>
+          <button onClick={() => setViewState({ type: 'filter', id: 'myday' })} className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'myday' ? 'bg-white shadow-sm font-bold text-orange-600' : 'text-gray-600 hover:bg-white/50'}`}><Sun size={20} className="text-orange-500"/> 오늘 작업</button>
+          <button onClick={() => setViewState({ type: 'filter', id: 'important' })} className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'important' ? 'bg-white shadow-sm font-bold text-pink-500' : 'text-gray-600 hover:bg-white/50'}`}><Star size={20} className="text-pink-500"/> 중요</button>
+          <button onClick={() => setViewState({ type: 'filter', id: 'planned' })} className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'planned' ? 'bg-white shadow-sm font-bold text-teal-600' : 'text-gray-600 hover:bg-white/50'}`}><CalendarDays size={20} className="text-teal-500"/> 계획된 일정</button>
+          <button onClick={() => setViewState({ type: 'filter', id: 'tasks' })} className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'tasks' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-gray-600 hover:bg-white/50'}`}><CheckSquare size={20} className="text-indigo-500"/> 작업</button>
+          <button onClick={() => setViewState({ type: 'filter', id: 'all' })} className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'all' ? 'bg-white shadow-sm font-bold text-gray-900' : 'text-gray-600 hover:bg-white/50'}`}><Layout size={20} className="text-gray-400"/> 모든 작업</button>
+          <button onClick={() => setViewState({ type: 'filter', id: 'deactivated' })} className={`w-full flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all ${currentFilterId === 'deactivated' ? 'bg-white shadow-sm font-bold text-gray-500' : 'text-gray-500 hover:bg-white/50'}`}>
+             <div className="flex items-center gap-3 sm:gap-4"><Archive size={20} className={currentFilterId === 'deactivated' ? "text-gray-600" : "text-gray-400"}/> 비활성화된 항목</div>
              {deactivatedCount > 0 && <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{deactivatedCount}</span>}
           </button>
           <div className="h-px bg-gray-200 my-4 mx-2"></div>
-          <div className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">목록 및 카테고리</div>
+          <div className="px-3 sm:px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">목록 및 카테고리</div>
           
           {groups.map(groupName => {
             const isCollapsed = collapsedGroups.has(groupName);
@@ -411,7 +432,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
                   onDragOver={(e) => { e.preventDefault(); setDragOverGroup(groupName); }}
                   onDragLeave={() => setDragOverGroup(null)}
                   onDrop={(e) => handleDropOnGroup(e, groupName)}
-                  className={`group/group flex items-center justify-between px-4 py-2 text-xs font-black tracking-tight rounded-xl transition-all cursor-pointer ${dragOverGroup === groupName ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100 text-slate-800'}`}
+                  className={`group/group flex items-center justify-between px-3 sm:px-4 py-2 text-xs font-black tracking-tight rounded-xl transition-all cursor-pointer ${dragOverGroup === groupName ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100 text-slate-800'}`}
                   onClick={() => toggleGroup(groupName)}
                 >
                   <div className="flex items-center gap-2">
@@ -438,11 +459,11 @@ export const TaskView: React.FC<TaskViewProps> = ({
                         onDragLeave={() => setDragOverCategory(null)}
                         onDrop={(e) => handleDropOnCategory(e, cat)}
                         onClick={() => setViewState({ type: 'category', name: cat })}
-                        className={`group/cat flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all ml-2 ${selectedCategoryName === cat ? 'bg-white shadow-sm font-bold text-blue-600' : dragOverCategory === cat ? 'bg-blue-50 border-blue-400' : 'text-gray-500 hover:bg-white/50'}`}
+                        className={`group/cat flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl cursor-pointer transition-all ml-1.5 sm:ml-2 ${selectedCategoryName === cat ? 'bg-white shadow-sm font-bold text-blue-600' : dragOverCategory === cat ? 'bg-blue-50 border-blue-400' : 'text-gray-500 hover:bg-white/50'}`}
                       >
                         <div className="flex items-center gap-4 truncate">
                           <Folder size={18} className={selectedCategoryName === cat ? 'text-blue-500' : 'text-gray-400'}/>
-                          <span className="truncate text-xs font-bold">{cat}</span>
+                          <span className="truncate text-[11px] sm:text-xs font-bold">{cat}</span>
                         </div>
                         <div className="flex items-center opacity-0 group-hover/cat:opacity-100 gap-1">
                           <button onClick={(e) => { e.stopPropagation(); handleRenameList(cat); }} className="p-1 hover:bg-gray-100 rounded text-gray-400"><Edit2 size={12}/></button>
@@ -455,15 +476,15 @@ export const TaskView: React.FC<TaskViewProps> = ({
               </div>
             );
           })}
-          <button onClick={handleCreateNewList} className="w-full flex items-center gap-3 px-4 py-4 text-blue-600 font-bold hover:bg-blue-50 rounded-xl transition-all mt-2 border border-dashed border-blue-100"><Plus size={18}/> 새 목록 만들기</button>
+          <button onClick={handleCreateNewList} className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-4 text-blue-600 font-bold hover:bg-blue-50 rounded-xl transition-all mt-2 border border-dashed border-blue-100 text-xs sm:text-sm"><Plus size={18}/> 새 목록 만들기</button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
-        <div className="p-6 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="p-3 sm:p-6 border-b flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400">{isSidebarOpen ? <PanelLeftClose size={20}/> : <PanelLeftOpen size={20}/>}</button>
-            <h2 className="text-2xl font-black text-slate-900">
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900">
                 {selectedCategoryName || (
                     currentFilterId === 'inbox' ? '수신함 (미배정)' :
                     currentFilterId === 'deactivated' ? '비활성화된 항목' :
@@ -475,36 +496,36 @@ export const TaskView: React.FC<TaskViewProps> = ({
             </h2>
           </div>
           {currentFilterId !== 'inbox' && currentFilterId !== 'deactivated' && (
-            <div className="flex items-center gap-3 p-3 bg-white border-2 border-blue-600 rounded-full shadow-lg w-full md:w-[400px] focus-within:ring-4 focus-within:ring-blue-50 transition-all">
-                <Plus size={20} className="text-blue-600 ml-2" />
-                <input value={mainInput} onChange={(e) => setMainInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddItem()} placeholder="할 일 추가..." className="flex-1 border-none outline-none px-2 font-bold text-slate-900 bg-transparent" />
-                <button onClick={() => handleAddItem()} className="px-5 py-2 bg-blue-600 text-white font-black rounded-full shadow-md hover:bg-blue-700 transition-all active:scale-95">추가</button>
+            <div className="flex items-center gap-2.5 sm:gap-3 p-2 sm:p-3 bg-white border-2 border-blue-600 rounded-2xl sm:rounded-full shadow-lg w-full md:w-[400px] focus-within:ring-4 focus-within:ring-blue-50 transition-all">
+                <Plus size={18} className="text-blue-600 ml-1.5" />
+                <input value={mainInput} onChange={(e) => setMainInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddItem()} placeholder="할 일 추가..." className="flex-1 border-none outline-none px-2 font-bold text-slate-900 bg-transparent text-[13px] sm:text-sm" />
+                <button onClick={() => handleAddItem()} className="px-4 py-2 bg-blue-600 text-white font-black rounded-full shadow-md hover:bg-blue-700 transition-all active:scale-95 text-xs sm:text-sm">추가</button>
             </div>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-2.5 sm:space-y-4 custom-scrollbar">
            {currentFilterId === 'inbox' && activeTasks.length > 0 && (
-              <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-center gap-3 mb-4 text-orange-700 text-sm font-medium">
+              <div className="bg-orange-50 border border-orange-100 p-3 sm:p-4 rounded-xl flex items-center gap-3 mb-4 text-orange-700 text-xs sm:text-sm font-medium">
                  <AlertCircle size={20} />
                  <p>AI가 생성한 미배정 작업입니다. [+] 버튼을 눌러 작업을 확정하거나, [비활성화] 버튼을 눌러 목록에서 숨기세요.</p>
               </div>
            )}
            {currentFilterId === 'deactivated' && activeTasks.length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl flex items-center gap-3 mb-4 text-gray-700 text-sm font-medium">
+              <div className="bg-gray-50 border border-gray-200 p-3 sm:p-4 rounded-xl flex items-center gap-3 mb-4 text-gray-700 text-xs sm:text-sm font-medium">
                  <Archive size={20} />
                  <p>비활성화된 항목입니다. 작업으로 복구하려면 왼쪽의 회전 화살표 버튼을 누르세요.</p>
               </div>
            )}
            {activeTasks.length > 0 ? activeTasks.map(renderTaskItem) : (
-             <div className="py-20 text-center text-gray-400 font-bold">
+             <div className="py-16 sm:py-20 text-center text-gray-400 font-bold">
                 {currentFilterId === 'inbox' ? '모든 작업이 배정되었습니다.' : 
                  currentFilterId === 'deactivated' ? '비활성화된 항목이 없습니다.' : 
                  '진행 중인 작업이 없습니다.'}
              </div>
            )}
            {completedTasks.length > 0 && (
-             <div className="pt-8 border-t border-gray-100 space-y-3">
-                <button onClick={() => setShowCompleted(!showCompleted)} className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-black text-gray-500 transition-all">
+             <div className="pt-4 sm:pt-8 border-t border-gray-100 space-y-3">
+                <button onClick={() => setShowCompleted(!showCompleted)} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-black text-gray-500 transition-all">
                   {showCompleted ? <EyeOff size={14}/> : <Eye size={14}/>} 완료됨 {completedTasks.length} {showCompleted ? '숨기기' : '보기'}
                 </button>
                 {showCompleted && <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">{completedTasks.map(renderTaskItem)}</div>}
@@ -515,12 +536,12 @@ export const TaskView: React.FC<TaskViewProps> = ({
 
       {selectedItemUid && selectedItem && (
         <div className="fixed md:absolute right-0 top-0 bottom-0 w-full md:w-[420px] bg-white border-l border-gray-200 z-30 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
-            <div className="p-6 border-b flex justify-between items-center">
+            <div className="p-3 sm:p-6 border-b flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">작업 상세 관리</span>
                 <button onClick={() => setSelectedItemUid(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400"><X size={20}/></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                <div className="flex items-start gap-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-8 space-y-4 sm:space-y-8 custom-scrollbar">
+                <div className="flex items-start gap-3 sm:gap-4">
                     {selectedItem.deactivated ? (
                          <button 
                             onClick={() => onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { deactivated: false })} 
@@ -546,7 +567,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
                        </button>
                     )}
                     <textarea 
-                      className={`flex-1 text-2xl font-black text-slate-900 border-none outline-none bg-transparent resize-none leading-tight ${selectedItem.completed ? 'text-gray-400 line-through' : ''}`}
+                      className={`flex-1 text-lg sm:text-2xl font-black text-slate-900 border-none outline-none bg-transparent resize-none leading-tight ${selectedItem.completed ? 'text-gray-400 line-through' : ''}`}
                       value={selectedItem.title}
                       onChange={(e) => onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { task: e.target.value })}
                     />
@@ -558,7 +579,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
                 </div>
                 {selectedItem.deactivated ? (
                     <div className="bg-gray-50 p-4 rounded-xl text-center border border-gray-100">
-                        <p className="text-xs text-gray-500 font-bold mb-3">이 항목은 비활성화 상태입니다.</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 font-bold mb-3">이 항목은 비활성화 상태입니다.</p>
                         <button 
                             onClick={() => onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { deactivated: false })} 
                             className="w-full py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition-all"
@@ -568,7 +589,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
                     </div>
                 ) : (
                     <div className="bg-slate-50 p-4 rounded-xl text-center border border-slate-100">
-                        <p className="text-xs text-slate-500 font-bold mb-3">
+                        <p className="text-[11px] sm:text-xs text-slate-500 font-bold mb-3">
                             {selectedItem.confirmed === false ? '이 작업은 아직 미배정 상태입니다.' : '목록에서 이 작업을 숨기시겠습니까?'}
                         </p>
                         <div className="flex gap-2">
@@ -613,15 +634,15 @@ export const TaskView: React.FC<TaskViewProps> = ({
                          onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { subTasks: newSubs });
                        }
                      }}
-                     className="w-full flex items-center gap-4 p-4 text-blue-600 font-bold hover:bg-blue-50 rounded-2xl transition-all"
+                     className="w-full flex items-center gap-4 p-3 sm:p-4 text-blue-600 font-bold hover:bg-blue-50 rounded-2xl transition-all"
                    >
                      <Plus size={20}/> 다음 단계
                    </button>
                 </div>
                 <div className="h-px bg-gray-100"></div>
                 <div className="space-y-1">
-                   <button className="w-full flex items-center gap-4 p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Sun size={20}/> 나의 하루에 추가</button>
-                   <button className="w-full flex items-center gap-4 p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Bell size={20}/> 미리 알림</button>
+                   <button className="w-full flex items-center gap-4 p-3 sm:p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Sun size={20}/> 나의 하루에 추가</button>
+                   <button className="w-full flex items-center gap-4 p-3 sm:p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Bell size={20}/> 미리 알림</button>
                    <div className="relative group/date">
                        <input 
                          type="date"
@@ -630,7 +651,7 @@ export const TaskView: React.FC<TaskViewProps> = ({
                          value={normalizeDate(selectedItem.date)}
                          onChange={(e) => onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { dueDate: e.target.value })}
                        />
-                       <div className={`flex items-center gap-2 p-4 rounded-2xl transition-all group-hover/date:bg-gray-50 ${selectedItem.date ? 'text-blue-600 bg-blue-50/30 font-black' : 'text-gray-500'}`}>
+                       <div className={`flex items-center gap-2 p-3 sm:p-4 rounded-2xl transition-all group-hover/date:bg-gray-50 ${selectedItem.date ? 'text-blue-600 bg-blue-50/30 font-black' : 'text-gray-500'}`}>
                           <CalendarIcon size={20}/>
                           <span className="flex-1 text-sm">{selectedItem.date ? `${selectedItem.date} 마감` : '기한 설정'}</span>
                           {selectedItem.date && (
@@ -644,25 +665,25 @@ export const TaskView: React.FC<TaskViewProps> = ({
                           )}
                        </div>
                    </div>
-                   <button className="w-full flex items-center gap-4 p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Repeat size={20}/> 반복</button>
-                   <button className="w-full flex items-center gap-4 p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><User size={20}/> 할당 대상 {selectedItem.assignee && <span className="ml-auto text-blue-600">@{selectedItem.assignee}</span>}</button>
-                   <button className="w-full flex items-center gap-4 p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Paperclip size={20}/> 파일 추가</button>
+                   <button className="w-full flex items-center gap-4 p-3 sm:p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Repeat size={20}/> 반복</button>
+                   <button className="w-full flex items-center gap-4 p-3 sm:p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><User size={20}/> 할당 대상 {selectedItem.assignee && <span className="ml-auto text-blue-600">@{selectedItem.assignee}</span>}</button>
+                   <button className="w-full flex items-center gap-4 p-3 sm:p-4 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all text-sm font-bold"><Paperclip size={20}/> 파일 추가</button>
                 </div>
                 <div className="h-px bg-gray-100"></div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">메모 추가</label>
                   <textarea 
-                    className="w-full min-h-[150px] p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none text-sm text-slate-700 font-medium leading-relaxed" 
+                    className="w-full min-h-[140px] p-3 sm:p-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none text-sm text-slate-700 font-medium leading-relaxed" 
                     placeholder="상세 내용을 입력하세요..."
                     value={selectedItem.notes}
                     onChange={(e) => onUpdateItem(selectedItem.meetingId, selectedItem.id, 'todo', { notes: e.target.value })}
                   />
                 </div>
             </div>
-            <div className="p-6 border-t bg-white flex items-center justify-between">
-                <button onClick={() => { if(confirm('영구적으로 삭제하시겠습니까? (기록에서도 제거됩니다)')) { meetings.filter(m => m.id === selectedItem.meetingId).forEach(m => { const newTodos = m.minutes.todos.filter(t => t.id !== selectedItem.id); onUpdateMeeting?.({ ...m, minutes: { ...m.minutes, todos: newTodos } }); }); setSelectedItemUid(null); } }} className="p-4 text-red-500 hover:bg-red-50 rounded-2xl transition-all"><Trash2 size={24}/></button>
+            <div className="p-3 sm:p-6 border-t bg-white flex items-center justify-between">
+                <button onClick={() => { if(confirm('영구적으로 삭제하시겠습니까? (기록에서도 제거됩니다)')) { meetings.filter(m => m.id === selectedItem.meetingId).forEach(m => { const newTodos = m.minutes.todos.filter(t => t.id !== selectedItem.id); onUpdateMeeting?.({ ...m, minutes: { ...m.minutes, todos: newTodos } }); }); setSelectedItemUid(null); } }} className="p-3 sm:p-4 text-red-500 hover:bg-red-50 rounded-2xl transition-all"><Trash2 size={22}/></button>
                 <div className="text-[10px] font-bold text-gray-400">마지막 업데이트: {new Date(selectedItem.originalMeeting.updatedAt || Date.now()).toLocaleTimeString()}</div>
-                <button onClick={() => setSelectedItemUid(null)} className="p-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-all">닫기</button>
+                <button onClick={() => setSelectedItemUid(null)} className="p-3 sm:p-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-all">닫기</button>
             </div>
         </div>
       )}
