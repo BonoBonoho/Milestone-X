@@ -46,6 +46,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [isMobile, setIsMobile] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
+  const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -58,6 +59,21 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
 
   const filterCategories = ['All', ...categories];
   const weekDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+  const CATEGORY_COLORS_KEY = 'bmove_category_colors';
+  const COLOR_PALETTE = ['#2563EB', '#F97316', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#14B8A6', '#64748B'];
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CATEGORY_COLORS_KEY);
+      if (raw) setCategoryColors(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CATEGORY_COLORS_KEY, JSON.stringify(categoryColors));
+    } catch {}
+  }, [categoryColors]);
 
   const allEvents: EnrichedScheduleItem[] = useMemo(() => {
     const events: EnrichedScheduleItem[] = [];
@@ -205,9 +221,37 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     if (createdId) setSelectedEventId(createdId);
   };
 
-  const getCategoryLabel = (category: string) => {
-    if (!category) return '기타';
-    return isMobile ? category.slice(0, 4) : category;
+  const hashCategory = (value: string) => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash << 5) - hash + value.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  };
+
+  const getCategoryColor = (category: string) => {
+    if (!category) return '#94A3B8';
+    if (categoryColors[category]) return categoryColors[category];
+    const idx = hashCategory(category) % COLOR_PALETTE.length;
+    return COLOR_PALETTE[idx];
+  };
+
+  const setNextCategoryColor = (category: string) => {
+    const current = getCategoryColor(category);
+    const idx = COLOR_PALETTE.indexOf(current);
+    const next = COLOR_PALETTE[(idx + 1) % COLOR_PALETTE.length] || COLOR_PALETTE[0];
+    setCategoryColors(prev => ({ ...prev, [category]: next }));
+  };
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    const clean = hex.replace('#', '');
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+    const num = parseInt(full, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
   const renderMonth = () => {
@@ -261,20 +305,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     const rangeClass = isRange
                       ? `${isStart ? 'rounded-l-md sm:rounded-l-lg' : 'rounded-l-none'} ${isEnd ? 'rounded-r-md sm:rounded-r-lg' : 'rounded-r-none'}`
                       : 'rounded-md sm:rounded-lg';
-                    const categoryLabel = getCategoryLabel(event.category);
+                    const color = getCategoryColor(event.category);
                     return (
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
-                      className={`px-2 py-1 border text-[9px] sm:text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1 ${rangeClass} ${
-                        event.sourceType === 'todo'
-                          ? event.completed ? 'bg-emerald-50 text-emerald-600 border-emerald-100 line-through' : 'bg-orange-50 text-orange-700 border-orange-100'
-                          : event.meetingType === 'meeting' 
-                             ? 'bg-blue-50 text-blue-700 border-blue-100' 
-                             : 'bg-purple-50 text-purple-700 border-purple-100'
-                      } ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                      className={`px-2 py-1 border text-[9px] sm:text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.14) }}
                     >
-                      <span className="px-1.5 py-0.5 rounded bg-white/70 border border-white/60 text-[8px] font-black text-gray-600 shrink-0">{categoryLabel}</span>
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                       <span className="truncate">{label}</span>
                     </div>
                     );
@@ -312,30 +351,25 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                   {dayEvents.length === 0 ? (
                     <div className="px-3 py-3 text-[11px] text-gray-400">일정 없음</div>
                   ) : (
-                    dayEvents.map((event) => (
+                    dayEvents.map((event) => {
+                      const color = getCategoryColor(event.category);
+                      return (
                       <div 
                         key={event.id}
                         onClick={() => setSelectedEventId(event.id)}
                         className={`px-3 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${selectedEventId === event.id ? 'bg-blue-50/60' : 'hover:bg-blue-50/40'}`}
                       >
-                        <div className={`w-1.5 h-8 rounded-full ${
-                          event.sourceType === 'todo' ? 'bg-orange-400' :
-                          event.meetingType === 'meeting' ? 'bg-blue-500' : 'bg-purple-500'
-                        }`}></div>
+                        <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: color }}></div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-black text-gray-600">
-                              {getCategoryLabel(event.category)}
-                            </span>
-                            <div className={`text-xs font-bold truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                              {event.event}
-                            </div>
+                          <div className={`text-xs font-bold truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                            {event.event}
                           </div>
                           <div className="text-[10px] text-gray-400 truncate">From: {event.meetingTitle}</div>
                         </div>
                         <ChevronRight size={14} className="text-gray-300" />
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -368,24 +402,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                 {dayEvents.length === 0 ? (
                   <div className="text-[10px] text-gray-300">일정 없음</div>
                 ) : (
-                  dayEvents.map(event => (
+                  dayEvents.map(event => {
+                    const color = getCategoryColor(event.category);
+                    return (
                     <div 
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className={`px-2 py-1 rounded-md border text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-1 ${
-                        event.sourceType === 'todo'
-                          ? event.completed ? 'bg-emerald-50 text-emerald-600 border-emerald-100 line-through' : 'bg-orange-50 text-orange-700 border-orange-100'
-                          : event.meetingType === 'meeting' 
-                             ? 'bg-blue-50 text-blue-700 border-blue-100' 
-                             : 'bg-purple-50 text-purple-700 border-purple-100'
-                      } ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                      className={`px-2 py-1 rounded-md border text-[10px] font-bold truncate cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
                     >
-                      <span className="px-1.5 py-0.5 rounded bg-white/70 border border-white/60 text-[8px] font-black text-gray-600 shrink-0">
-                        {getCategoryLabel(event.category)}
-                      </span>
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                       <span className="truncate">{event.event}</span>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             );
@@ -410,25 +440,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
           <div className="p-10 text-center text-gray-400 text-sm font-medium">오늘 일정이 없습니다.</div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {dayEvents.map(event => (
+            {dayEvents.map(event => {
+              const color = getCategoryColor(event.category);
+              return (
               <div 
                 key={event.id}
                 onClick={() => setSelectedEventId(event.id)}
                 className={`p-4 sm:p-5 flex items-center gap-4 hover:bg-blue-50/30 transition-colors group cursor-pointer ${selectedEventId === event.id ? 'bg-blue-50' : ''}`}
               >
-                <div className={`w-1.5 h-12 rounded-full ${
-                    event.sourceType === 'todo' ? 'bg-orange-400' :
-                    event.meetingType === 'meeting' ? 'bg-blue-500' : 'bg-purple-500'
-                }`}></div>
+                <div className="w-1.5 h-12 rounded-full" style={{ backgroundColor: color }}></div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-black text-gray-600">
-                      {getCategoryLabel(event.category)}
-                    </span>
-                    <h4 className={`text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
-                      {event.event}
-                    </h4>
-                  </div>
+                  <h4 className={`text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                    {event.event}
+                  </h4>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                     <span className={`px-2 py-0.5 rounded font-bold ${event.sourceType === 'todo' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                       {event.sourceType === 'todo' ? '할 일 마감' : '일정'}
@@ -445,7 +469,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                   <ChevronRight size={18} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -534,19 +559,32 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                 </div>
                 {!showPending && (
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xl:w-auto px-2 border-t xl:border-t-0 pt-2 xl:pt-0 border-gray-50">
-                        {filterCategories.map(cat => (
+                        {filterCategories.map(cat => {
+                          const color = getCategoryColor(cat);
+                          const isAll = cat === 'All';
+                          return (
                             <button
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat)}
-                                className={`px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all border ${
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all border flex items-center gap-2 ${
                                     selectedCategory === cat 
                                     ? 'bg-gray-900 text-white border-gray-900' 
                                     : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                                 }`}
                             >
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isAll) setNextCategoryColor(cat);
+                                  }}
+                                  className={`w-2.5 h-2.5 rounded-full border ${isAll ? 'bg-gray-300 border-gray-300' : ''}`}
+                                  style={!isAll ? { backgroundColor: color, borderColor: color } : {}}
+                                  title={isAll ? '전체' : '색상 변경'}
+                                />
                                 {cat}
                             </button>
-                        ))}
+                          );
+                        })}
                     </div>
                 )}
                 </div>
