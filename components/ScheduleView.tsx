@@ -306,7 +306,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                   >
                     {day}
                   </button>
-                  {dayEvents.length > 0 && <span className="text-[8px] sm:text-[9px] font-bold text-gray-400">{dayEvents.length}개</span>}
+                  {dayEvents.length > 0 && <span className="text-[7px] sm:text-[8px] font-bold text-gray-400">{dayEvents.length}개</span>}
                 </div>
                 <div className="space-y-1">
                   {visibleEvents.map((event) => {
@@ -324,15 +324,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
-                      className={`px-2 py-1.5 border-l-4 text-[10px] sm:text-[10px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
-                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.18), borderLeftColor: color }}
+                      className={`px-2 py-1 border text-[9px] sm:text-[9px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.16) }}
                     >
                       <span className="line-clamp-2 leading-tight">{label}</span>
                     </div>
                     );
                   })}
                   {remaining > 0 && (
-                    <div className="text-[8px] sm:text-[9px] font-bold text-gray-400 px-2">+{remaining}개 더보기</div>
+                    <div className="text-[7px] sm:text-[8px] font-bold text-gray-400 px-2">+{remaining}개 더보기</div>
                   )}
                 </div>
               </div>
@@ -374,17 +374,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       >
                         <div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: color }}></div>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-[12px] font-semibold leading-tight line-clamp-2 ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                          <div className={`text-[11px] font-medium leading-tight line-clamp-2 ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                             {event.event}
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-400">
+                          <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-400">
                             <span className="inline-flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
                               {event.category}
                             </span>
                             {event.time && <span className="flex items-center gap-1"><Clock size={10} /> {event.time}</span>}
                           </div>
-                          <div className="text-[9px] text-gray-400 truncate">From: {event.meetingTitle}</div>
+                          <div className="text-[8px] text-gray-400 truncate">From: {event.meetingTitle}</div>
                         </div>
                         <ChevronRight size={14} className="text-gray-300" />
                       </div>
@@ -428,8 +428,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className={`px-2 py-1.5 rounded-md border-l-4 text-[9px] font-semibold cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
-                      style={{ borderColor: color, borderLeftColor: color, backgroundColor: hexToRgba(color, 0.14) }}
+                      className={`px-2 py-1 rounded-md border text-[8px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
                     >
                       <span className="line-clamp-2 leading-tight">{event.event}</span>
                     </div>
@@ -467,12 +467,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                 onClick={() => setSelectedEventId(event.id)}
                 className={`p-4 sm:p-5 flex items-center gap-4 hover:bg-blue-50/30 transition-colors group cursor-pointer ${selectedEventId === event.id ? 'bg-blue-50' : ''}`}
               >
-                <div className="w-1.5 h-12 rounded-full" style={{ backgroundColor: color }}></div>
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-[14px] sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                  <h4 className={`text-[12px] sm:text-[11px] font-medium text-gray-900 group-hover:text-blue-600 transition-colors ${event.completed ? 'line-through text-gray-400' : ''}`}>
                     {event.event}
                   </h4>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 text-[9px] text-gray-500 mt-1">
                     <span className={`px-2 py-0.5 rounded font-bold ${event.sourceType === 'todo' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                       {event.sourceType === 'todo' ? '할 일 마감' : '일정'}
                     </span>
@@ -657,12 +656,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                 onClick={() => setSelectedEventId(event.id)}
                                 className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-blue-50/40"
                               >
-                                <div className="w-1.5 h-10 rounded-full mt-1" style={{ backgroundColor: color }} />
                                 <div className="min-w-0 flex-1">
-                                  <div className={`text-[12px] font-semibold ${event.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                  <div className={`text-[11px] font-medium ${event.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                                     {event.event}
                                   </div>
-                                  <div className="text-[10px] text-gray-500 mt-1">
+                                  <div className="text-[9px] text-gray-500 mt-1">
                                     {event.category} · {event.meetingTitle}
                                   </div>
                                 </div>
