@@ -48,6 +48,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
   const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -259,6 +260,28 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     setColorPickerCategory(null);
   };
 
+  const toDate = (value: string) => {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const formatDate = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const diffDays = (from: string, to: string) => {
+    const a = toDate(from);
+    const b = toDate(to);
+    const ms = b.getTime() - a.getTime();
+    return Math.round(ms / (1000 * 60 * 60 * 24));
+  };
+
+  const shiftDate = (base: string, offset: number) => {
+    const d = toDate(base);
+    d.setDate(d.getDate() + offset);
+    return formatDate(d);
+  };
+
   const renderMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -288,7 +311,35 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             const visibleEvents = dayEvents.slice(0, limit);
             const remaining = dayEvents.length - visibleEvents.length;
             return (
-              <div key={day} className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[110px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''}`}>
+              <div
+                key={day}
+                onDragOver={(e) => { if (!isMobile) { e.preventDefault(); setDragOverDate(dateStr); } }}
+                onDragLeave={() => { if (!isMobile) setDragOverDate(null); }}
+                onDrop={(e) => {
+                  if (isMobile) return;
+                  e.preventDefault();
+                  setDragOverDate(null);
+                  const raw = e.dataTransfer.getData('text/plain');
+                  if (!raw) return;
+                  let payload: any = null;
+                  try { payload = JSON.parse(raw); } catch { return; }
+                  if (!payload?.id || !payload?.sourceType) return;
+                  const target = allEvents.find(ev => ev.id === payload.id);
+                  if (!target) return;
+                  const startKey = normalizeDate(target.date);
+                  if (!startKey) return;
+                  const offset = diffDays(startKey, dateStr);
+                  if (target.sourceType === 'todo') {
+                    onUpdateSchedule(target.meetingId, target.id, 'todo', { dueDate: dateStr });
+                  } else {
+                    const update: any = { date: dateStr };
+                    const endKey = normalizeDate(target.endDate);
+                    if (endKey) update.endDate = shiftDate(endKey, offset);
+                    onUpdateSchedule(target.meetingId, target.id, 'schedule', update);
+                  }
+                }}
+                className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[110px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''} ${dragOverDate === dateStr ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+              >
                 <div className="flex justify-between items-start mb-1.5 sm:mb-2">
                   <button
                     onClick={(e) => {
@@ -324,6 +375,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id} 
                       onClick={(e) => { e.stopPropagation(); setSelectedEventId(event.id); }}
+                      draggable={!isMobile}
+                      onDragStart={(e) => {
+                        if (isMobile) return;
+                        e.dataTransfer.setData('text/plain', JSON.stringify({ id: event.id, sourceType: event.sourceType }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
                       className={`px-2 py-1 border text-[9px] sm:text-[9px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.16) }}
                     >
@@ -542,29 +599,29 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                         </span>
                         <button onClick={handleNext} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><ChevronRight size={18}/></button>
                     </div>
-                    <div className="flex items-center bg-gray-100/80 p-1 rounded-xl ml-auto xl:ml-0 gap-1">
+                    <div className="flex items-center bg-gray-100/80 p-1 rounded-xl ml-auto xl:ml-0 gap-1 flex-nowrap overflow-x-auto no-scrollbar">
                         <button 
                             onClick={() => setViewMode('month')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'month' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <CalendarIcon size={14} /> 월간
                         </button>
                         <button 
                             onClick={() => setViewMode('week')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${viewMode === 'week' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'week' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <ListIcon size={14} /> 주간
                         </button>
                         <button 
                             onClick={() => setViewMode('day')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${viewMode === 'day' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${viewMode === 'day' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <AlignLeft size={14} /> 일간
                         </button>
                         <div className="w-px h-4 bg-gray-300 mx-1"></div>
                         <button
                             onClick={() => setShowPending(!showPending)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${
                                 showPending 
                                 ? 'bg-orange-500 text-white shadow-sm' 
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
