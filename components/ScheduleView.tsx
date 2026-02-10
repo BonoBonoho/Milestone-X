@@ -49,6 +49,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [isSelectingRange, setIsSelectingRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -198,12 +201,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     return target >= startKey && target <= endKey;
   };
 
-  const openAddModal = (presetDate?: string) => {
+  const openAddModal = (presetDate?: string, presetEnd?: string) => {
     const today = new Date().toISOString().split('T')[0];
     setDraft({
       event: '',
       date: presetDate || today,
-      endDate: '',
+      endDate: presetEnd || '',
       time: '',
       notes: ''
     });
@@ -260,6 +263,22 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     setColorPickerCategory(null);
   };
 
+  const orderDates = (a: string, b: string) => {
+    if (!a || !b) return [a, b] as const;
+    return a <= b ? [a, b] as const : [b, a] as const;
+  };
+
+  useEffect(() => {
+    if (!isSelectingRange) return;
+    const handleUp = () => {
+      setIsSelectingRange(false);
+      setRangeStart(null);
+      setRangeEnd(null);
+    };
+    window.addEventListener('mouseup', handleUp);
+    return () => window.removeEventListener('mouseup', handleUp);
+  }, [isSelectingRange]);
+
   const toDate = (value: string) => {
     const [y, m, d] = value.split('-').map(Number);
     return new Date(y, m - 1, d);
@@ -310,9 +329,43 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             const limit = isMobile ? 2 : 4;
             const visibleEvents = dayEvents.slice(0, limit);
             const remaining = dayEvents.length - visibleEvents.length;
+            const [selectionStart, selectionEnd] = rangeStart && rangeEnd ? orderDates(rangeStart, rangeEnd) : [rangeStart, rangeEnd];
+            const isInRange = selectionStart && selectionEnd && isDateInRange(dateStr, selectionStart, selectionEnd);
             return (
               <div
                 key={day}
+                onMouseDown={(e) => {
+                  if (isMobile) return;
+                  if ((e.target as HTMLElement).closest('[data-role="event-item"]')) return;
+                  if ((e.target as HTMLElement).closest('[data-role="day-button"]')) return;
+                  if ((e.target as HTMLElement).closest('[data-role="add-button"]')) return;
+                  setRangeStart(dateStr);
+                  setRangeEnd(dateStr);
+                  setIsSelectingRange(true);
+                }}
+                onMouseEnter={() => {
+                  if (!isSelectingRange || isMobile) return;
+                  setRangeEnd(dateStr);
+                }}
+                onMouseUp={(e) => {
+                  if (isMobile) return;
+                  if (!isSelectingRange) return;
+                  e.stopPropagation();
+                  const start = rangeStart || dateStr;
+                  const end = rangeEnd || dateStr;
+                  const [orderedStart, orderedEnd] = orderDates(start, end);
+                  openAddModal(orderedStart, orderedEnd === orderedStart ? '' : orderedEnd);
+                  setIsSelectingRange(false);
+                  setRangeStart(null);
+                  setRangeEnd(null);
+                }}
+                onClick={(e) => {
+                  if (!isMobile) return;
+                  if ((e.target as HTMLElement).closest('[data-role="event-item"]')) return;
+                  if ((e.target as HTMLElement).closest('[data-role="add-button"]')) return;
+                  const next = dateStr;
+                  setSelectedDay(next);
+                }}
                 onDragOver={(e) => { if (!isMobile) { e.preventDefault(); setDragOverDate(dateStr); } }}
                 onDragLeave={() => { if (!isMobile) setDragOverDate(null); }}
                 onDrop={(e) => {
@@ -338,7 +391,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     onUpdateSchedule(target.meetingId, target.id, 'schedule', update);
                   }
                 }}
-                className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[110px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''} ${dragOverDate === dateStr ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                className={`p-1.5 sm:p-2 border-b border-r border-gray-100 min-h-[110px] sm:min-h-[120px] group transition-colors hover:bg-blue-50/10 ${isToday ? 'bg-blue-50/30' : ''} ${dragOverDate === dateStr ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${isInRange ? 'bg-blue-50/50' : ''}`}
               >
                 <div className="flex justify-between items-start mb-1.5 sm:mb-2">
                   <button
@@ -354,10 +407,25 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     }}
                     className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-colors ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}
                     title={isMobile ? '선택 날짜 보기' : '일간 보기로 열기'}
+                    data-role="day-button"
                   >
                     {day}
                   </button>
-                  {dayEvents.length > 0 && <span className="text-[7px] sm:text-[8px] font-bold text-gray-400">{dayEvents.length}개</span>}
+                  <div className="flex items-center gap-1">
+                    {dayEvents.length > 0 && <span className="text-[7px] sm:text-[8px] font-bold text-gray-400">{dayEvents.length}개</span>}
+                    <button
+                      type="button"
+                      data-role="add-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddModal(dateStr);
+                      }}
+                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all ${isMobile ? (selectedDay === dateStr ? 'opacity-100' : 'opacity-0 pointer-events-none') : 'opacity-0 group-hover:opacity-100'}`}
+                      title="일정 추가"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   {visibleEvents.map((event) => {
@@ -381,8 +449,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                         e.dataTransfer.setData('text/plain', JSON.stringify({ id: event.id, sourceType: event.sourceType }));
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      className={`px-2 py-1 border text-[9px] sm:text-[9px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      className={`px-2 py-1 border text-[9px] sm:text-[9px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 overflow-hidden ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.16) }}
+                      data-role="event-item"
                     >
                       <span className="block w-full truncate whitespace-nowrap overflow-hidden">{label}</span>
                     </div>
@@ -475,7 +544,34 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
             const dayEvents = filteredEvents.filter(e => isDateInRange(dateStr, e.date, e.endDate));
             return (
-              <div key={dateStr} className="p-2 border-b border-r border-gray-100 space-y-1.5">
+              <div
+                key={dateStr}
+                onDragOver={(e) => { e.preventDefault(); setDragOverDate(dateStr); }}
+                onDragLeave={() => setDragOverDate(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverDate(null);
+                  const raw = e.dataTransfer.getData('text/plain');
+                  if (!raw) return;
+                  let payload: any = null;
+                  try { payload = JSON.parse(raw); } catch { return; }
+                  if (!payload?.id || !payload?.sourceType) return;
+                  const target = allEvents.find(ev => ev.id === payload.id);
+                  if (!target) return;
+                  const startKey = normalizeDate(target.date);
+                  if (!startKey) return;
+                  const offset = diffDays(startKey, dateStr);
+                  if (target.sourceType === 'todo') {
+                    onUpdateSchedule(target.meetingId, target.id, 'todo', { dueDate: dateStr });
+                  } else {
+                    const update: any = { date: dateStr };
+                    const endKey = normalizeDate(target.endDate);
+                    if (endKey) update.endDate = shiftDate(endKey, offset);
+                    onUpdateSchedule(target.meetingId, target.id, 'schedule', update);
+                  }
+                }}
+                className={`p-2 border-b border-r border-gray-100 space-y-1.5 ${dragOverDate === dateStr ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+              >
                 {dayEvents.length === 0 ? (
                   <div className="text-[10px] text-gray-300">일정 없음</div>
                 ) : (
@@ -485,7 +581,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                     <div 
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className={`px-2 py-1 rounded-md border text-[8px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
+                      className={`px-2 py-1 rounded-md border text-[8px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 overflow-hidden ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
                     >
                       <span className="block w-full truncate whitespace-nowrap overflow-hidden">{event.event}</span>
@@ -686,18 +782,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       <span>
                         선택 날짜: {selectedDay}
                       </span>
-                      <button
-                        className="text-blue-600 font-black"
-                        onClick={() => {
-                          const [y, m, d] = selectedDay.split('-').map(Number);
-                          if (y && m && d) {
-                            setCurrentDate(new Date(y, m - 1, d));
-                            setViewMode('day');
-                          }
-                        }}
-                      >
-                        일간 보기
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="text-blue-600 font-black"
+                          onClick={() => {
+                            const [y, m, d] = selectedDay.split('-').map(Number);
+                            if (y && m && d) {
+                              setCurrentDate(new Date(y, m - 1, d));
+                              setViewMode('day');
+                            }
+                          }}
+                        >
+                          일간 보기
+                        </button>
+                        <button
+                          className="px-2.5 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold"
+                          onClick={() => openAddModal(selectedDay)}
+                        >
+                          일정 추가
+                        </button>
+                      </div>
                     </div>
                     <div className="divide-y divide-gray-50">
                       {filteredEvents.filter(e => isDateInRange(selectedDay, e.date, e.endDate)).length === 0 ? (
