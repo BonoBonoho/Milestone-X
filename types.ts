@@ -31,6 +31,13 @@ export interface ScheduleItem {
   date: string;
   endDate?: string;
   time?: string;
+  allDay?: boolean;
+  location?: string;
+  attendees?: string[];
+  repeat?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  reminder?: 'none' | '5m' | '10m' | '30m' | '1h' | '1d';
+  priority?: 'low' | 'medium' | 'high';
+  category?: string;
   confirmed?: boolean;
   deactivated?: boolean; // [New] 비활성화 상태 추가
   notes?: string;

@@ -11,10 +11,38 @@ interface ScheduleViewProps {
   meetings: Meeting[];
   categories: string[];
   onUpdateSchedule: (meetingId: string, scheduleId: string, type: 'todo' | 'schedule', updates: Partial<ScheduleItem | TodoItem>) => void;
-  onCreateSchedule?: (input: { event: string; date: string; endDate?: string; time?: string; notes?: string }) => string | void;
+  onCreateSchedule?: (input: { 
+    event: string; 
+    date: string; 
+    endDate?: string; 
+    time?: string; 
+    notes?: string;
+    allDay?: boolean;
+    location?: string;
+    attendees?: string[];
+    repeat?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+    reminder?: 'none' | '5m' | '10m' | '30m' | '1h' | '1d';
+    priority?: 'low' | 'medium' | 'high';
+    category?: string;
+  }) => string | void;
 }
 
 type ViewMode = 'month' | 'week' | 'day';
+
+interface DraftSchedule {
+  event: string;
+  date: string;
+  endDate: string;
+  time: string;
+  notes: string;
+  allDay: boolean;
+  location: string;
+  attendees: string;
+  repeat: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  reminder: 'none' | '5m' | '10m' | '30m' | '1h' | '1d';
+  priority: 'low' | 'medium' | 'high';
+  category: string;
+}
 
 interface EnrichedScheduleItem {
   id: string;
@@ -22,6 +50,12 @@ interface EnrichedScheduleItem {
   date: string;
   endDate?: string;
   time?: string;
+  allDay?: boolean;
+  location?: string;
+  attendees?: string[];
+  repeat?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  reminder?: 'none' | '5m' | '10m' | '30m' | '1h' | '1d';
+  priority?: 'low' | 'medium' | 'high';
   confirmed?: boolean;
   deactivated?: boolean;
   notes?: string;
@@ -45,7 +79,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
   const [showPending, setShowPending] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [draft, setDraft] = useState({ event: '', date: '', endDate: '', time: '', notes: '' });
+  const [draft, setDraft] = useState<DraftSchedule>({ 
+    event: '', 
+    date: '', 
+    endDate: '', 
+    time: '', 
+    notes: '',
+    allDay: false,
+    location: '',
+    attendees: '',
+    repeat: 'none',
+    reminder: 'none',
+    priority: 'medium',
+    category: ''
+  });
   const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -63,10 +110,36 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
     return () => media.removeEventListener('change', update);
   }, []);
 
+  const scheduleCategoryOptions = useMemo(() => {
+    const base = categories.filter(Boolean);
+    if (base.includes('내 일정')) return base;
+    return ['내 일정', ...base];
+  }, [categories]);
   const filterCategories = ['All', ...categories];
   const weekDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
   const CATEGORY_COLORS_KEY = 'bmove_category_colors';
   const COLOR_PALETTE = ['#2563EB', '#F97316', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#14B8A6', '#64748B'];
+  const repeatOptions = [
+    { value: 'none', label: '반복 없음' },
+    { value: 'daily', label: '매일' },
+    { value: 'weekly', label: '매주' },
+    { value: 'biweekly', label: '격주' },
+    { value: 'monthly', label: '매월' },
+    { value: 'yearly', label: '매년' },
+  ];
+  const reminderOptions = [
+    { value: 'none', label: '알림 없음' },
+    { value: '5m', label: '5분 전' },
+    { value: '10m', label: '10분 전' },
+    { value: '30m', label: '30분 전' },
+    { value: '1h', label: '1시간 전' },
+    { value: '1d', label: '1일 전' },
+  ];
+  const priorityOptions = [
+    { value: 'low', label: '낮음' },
+    { value: 'medium', label: '보통' },
+    { value: 'high', label: '높음' },
+  ];
 
   useEffect(() => {
     try {
@@ -89,7 +162,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
           ...s,
           meetingId: m.id,
           meetingTitle: m.title,
-          category: m.category,
+          category: s.category || m.category,
           meetingType: m.type,
           sourceType: 'schedule'
         });
@@ -203,24 +276,44 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
 
   const openAddModal = (presetDate?: string, presetEnd?: string) => {
     const today = new Date().toISOString().split('T')[0];
+    const defaultCategory = selectedCategory !== 'All' ? selectedCategory : (scheduleCategoryOptions[0] || '내 일정');
     setDraft({
       event: '',
       date: presetDate || today,
-      endDate: presetEnd || '',
+      endDate: presetEnd && presetEnd !== (presetDate || today) ? presetEnd : '',
       time: '',
-      notes: ''
+      notes: '',
+      allDay: false,
+      location: '',
+      attendees: '',
+      repeat: 'none',
+      reminder: 'none',
+      priority: 'medium',
+      category: defaultCategory
     });
     setShowAddModal(true);
   };
 
   const handleCreate = () => {
     if (!draft.event.trim() || !draft.date) return;
+    const [orderedStart, orderedEnd] = draft.endDate ? orderDates(draft.date, draft.endDate) : [draft.date, ''];
+    const attendeeList = draft.attendees
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
     const payload = {
       event: draft.event.trim(),
-      date: draft.date,
-      endDate: draft.endDate || undefined,
-      time: draft.time || undefined,
+      date: orderedStart,
+      endDate: orderedEnd || undefined,
+      time: draft.allDay ? undefined : (draft.time || undefined),
       notes: draft.notes || undefined,
+      allDay: draft.allDay,
+      location: draft.location || undefined,
+      attendees: attendeeList.length ? attendeeList : undefined,
+      repeat: draft.repeat,
+      reminder: draft.reminder,
+      priority: draft.priority,
+      category: draft.category || undefined
     };
     const createdId = onCreateSchedule?.(payload);
     setShowAddModal(false);
@@ -901,13 +994,100 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1"><Clock size={12}/> 시간</label>
                                     <input 
                                         type="time"
-                                        value={selectedEvent.time || ''}
+                                        value={selectedEvent.allDay ? '' : (selectedEvent.time || '')}
                                         onChange={(e) => handleUpdate({ time: e.target.value })}
+                                        disabled={!!selectedEvent.allDay}
                                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
                                     />
                                 </div>
                              )}
                          </div>
+                         {selectedEvent.sourceType === 'schedule' && (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">카테고리</label>
+                               <div className="relative">
+                                 <select
+                                   value={selectedEvent.category}
+                                   onChange={(e) => handleUpdate({ category: e.target.value })}
+                                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 appearance-none"
+                                 >
+                                   {scheduleCategoryOptions.map(option => (
+                                     <option key={option} value={option}>{option}</option>
+                                   ))}
+                                 </select>
+                                 <span
+                                   className="absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
+                                   style={{ backgroundColor: getCategoryColor(selectedEvent.category) }}
+                                 />
+                               </div>
+                             </div>
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">종일</label>
+                               <button
+                                 type="button"
+                                 onClick={() => handleUpdate({ allDay: !selectedEvent.allDay, time: selectedEvent.allDay ? selectedEvent.time : undefined })}
+                                 className={`w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all ${selectedEvent.allDay ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                               >
+                                 {selectedEvent.allDay ? '종일 일정' : '시간 지정'}
+                               </button>
+                             </div>
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">반복</label>
+                               <select
+                                 value={selectedEvent.repeat || 'none'}
+                                 onChange={(e) => handleUpdate({ repeat: e.target.value })}
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 appearance-none"
+                               >
+                                 {repeatOptions.map(option => (
+                                   <option key={option.value} value={option.value}>{option.label}</option>
+                                 ))}
+                               </select>
+                             </div>
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">알림</label>
+                               <select
+                                 value={selectedEvent.reminder || 'none'}
+                                 onChange={(e) => handleUpdate({ reminder: e.target.value })}
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 appearance-none"
+                               >
+                                 {reminderOptions.map(option => (
+                                   <option key={option.value} value={option.value}>{option.label}</option>
+                                 ))}
+                               </select>
+                             </div>
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">우선순위</label>
+                               <select
+                                 value={selectedEvent.priority || 'medium'}
+                                 onChange={(e) => handleUpdate({ priority: e.target.value })}
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 appearance-none"
+                               >
+                                 {priorityOptions.map(option => (
+                                   <option key={option.value} value={option.value}>{option.label}</option>
+                                 ))}
+                               </select>
+                             </div>
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">장소</label>
+                               <input
+                                 value={selectedEvent.location || ''}
+                                 onChange={(e) => handleUpdate({ location: e.target.value })}
+                                 placeholder="예: 회의실 A"
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+                               />
+                             </div>
+                             <div className="space-y-2 sm:col-span-2">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">참석자</label>
+                               <input
+                                 value={(selectedEvent.attendees || []).join(', ')}
+                                 onChange={(e) => handleUpdate({ attendees: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                                 placeholder="예: 홍길동, 김지수"
+                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+                               />
+                             </div>
+                           </div>
+                         )}
                          {selectedEvent.sourceType === 'todo' && (
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">상태 관리</label>
@@ -970,6 +1150,36 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">카테고리</label>
+                  <div className="relative">
+                    <select
+                      value={draft.category}
+                      onChange={(e) => setDraft(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full appearance-none px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+                    >
+                      {scheduleCategoryOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                    <span
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
+                      style={{ backgroundColor: getCategoryColor(draft.category || scheduleCategoryOptions[0] || '내 일정') }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">종일</label>
+                  <button
+                    type="button"
+                    onClick={() => setDraft(prev => ({ ...prev, allDay: !prev.allDay, time: prev.allDay ? prev.time : '' }))}
+                    className={`w-full px-4 py-3 rounded-2xl border text-sm font-bold transition-all ${draft.allDay ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    {draft.allDay ? '종일 일정' : '시간 지정'}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">시작 날짜</label>
                   <input
                     type="date"
@@ -988,12 +1198,72 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                   />
                 </div>
               </div>
+              {!draft.allDay && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">시간 (선택)</label>
+                  <input
+                    type="time"
+                    value={draft.time}
+                    onChange={(e) => setDraft(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">반복</label>
+                  <select
+                    value={draft.repeat}
+                    onChange={(e) => setDraft(prev => ({ ...prev, repeat: e.target.value as typeof draft.repeat }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+                  >
+                    {repeatOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">알림</label>
+                  <select
+                    value={draft.reminder}
+                    onChange={(e) => setDraft(prev => ({ ...prev, reminder: e.target.value as typeof draft.reminder }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+                  >
+                    {reminderOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">우선순위</label>
+                  <select
+                    value={draft.priority}
+                    onChange={(e) => setDraft(prev => ({ ...prev, priority: e.target.value as typeof draft.priority }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+                  >
+                    {priorityOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">장소 (선택)</label>
+                  <input
+                    value={draft.location}
+                    onChange={(e) => setDraft(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="예: 회의실 A"
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">시간 (선택)</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">참석자 (쉼표로 구분)</label>
                 <input
-                  type="time"
-                  value={draft.time}
-                  onChange={(e) => setDraft(prev => ({ ...prev, time: e.target.value }))}
+                  value={draft.attendees}
+                  onChange={(e) => setDraft(prev => ({ ...prev, attendees: e.target.value }))}
+                  placeholder="예: 홍길동, 김지수"
                   className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>

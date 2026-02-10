@@ -624,7 +624,20 @@ const App: React.FC = () => {
     setMeetings(prev => [newList, ...prev]);
   };
 
-  const handleCreateSchedule = (input: { event: string; date: string; endDate?: string; time?: string; notes?: string }) => {
+  const handleCreateSchedule = (input: { 
+    event: string; 
+    date: string; 
+    endDate?: string; 
+    time?: string; 
+    notes?: string;
+    allDay?: boolean;
+    location?: string;
+    attendees?: string[];
+    repeat?: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+    reminder?: 'none' | '5m' | '10m' | '30m' | '1h' | '1d';
+    priority?: 'low' | 'medium' | 'high';
+    category?: string;
+  }) => {
     if (!userEmail) return;
     const scheduleId = generateUUID();
     const newSchedule: ScheduleItem = {
@@ -632,7 +645,14 @@ const App: React.FC = () => {
       event: input.event,
       date: input.date,
       endDate: input.endDate,
-      time: input.time,
+      time: input.allDay ? undefined : input.time,
+      allDay: input.allDay,
+      location: input.location,
+      attendees: input.attendees,
+      repeat: input.repeat,
+      reminder: input.reminder,
+      priority: input.priority,
+      category: input.category,
       notes: input.notes,
       confirmed: true,
       deactivated: false
