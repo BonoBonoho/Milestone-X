@@ -327,7 +327,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       className={`px-2 py-1 border text-[9px] sm:text-[9px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${rangeClass} ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.16) }}
                     >
-                      <span className="truncate">{label}</span>
+                      <span className="block w-full truncate whitespace-nowrap overflow-hidden">{label}</span>
                     </div>
                     );
                   })}
@@ -374,7 +374,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       >
                         <div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: color }}></div>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-[11px] font-medium truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                          <div className={`text-[11px] font-medium truncate ${event.completed ? 'text-gray-400 line-through' : 'text-gray-900'} w-full`}>
                             {event.event}
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-400">
@@ -431,7 +431,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                       className={`px-2 py-1 rounded-md border text-[8px] font-medium cursor-pointer shadow-sm transition-all hover:scale-[1.02] active:scale-95 ${selectedEventId === event.id ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${event.completed ? 'line-through text-gray-400' : 'text-slate-900'}`}
                       style={{ borderColor: color, backgroundColor: hexToRgba(color, 0.12) }}
                     >
-                      <span className="truncate">{event.event}</span>
+                      <span className="block w-full truncate whitespace-nowrap overflow-hidden">{event.event}</span>
                     </div>
                     );
                   })
@@ -468,7 +468,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                 className={`p-4 sm:p-5 flex items-center gap-4 hover:bg-blue-50/30 transition-colors group cursor-pointer ${selectedEventId === event.id ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-[12px] sm:text-[11px] font-medium text-gray-900 group-hover:text-blue-600 transition-colors truncate ${event.completed ? 'line-through text-gray-400' : ''}`}>
+                  <h4 className={`text-[12px] sm:text-[11px] font-medium text-gray-900 group-hover:text-blue-600 transition-colors truncate w-full ${event.completed ? 'line-through text-gray-400' : ''}`}>
                     {event.event}
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 text-[9px] text-gray-500 mt-1">
@@ -657,7 +657,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({ meetings, categories
                                 className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-blue-50/40"
                               >
                                 <div className="min-w-0 flex-1">
-                                  <div className={`text-[11px] font-medium truncate ${event.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                  <div className={`text-[11px] font-medium truncate w-full ${event.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                                     {event.event}
                                   </div>
                                   <div className="text-[9px] text-gray-500 mt-1">
